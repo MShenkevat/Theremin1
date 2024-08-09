@@ -1,0 +1,80 @@
+int speakerPin = 5; // Pin S5 al que está conectado el positivo del parlante
+int maxBPM = 200;   // BPM máximo
+int minBPM = 0;     // BPM mínimo
+int minDistanceSensor1 = 5; // Distancia mínima para BPM máximo (en cm)
+int maxDistanceSensor1 = 50; // Distancia máxima para BPM mínimo (en cm)
+
+int minDistanceSensor2 = 2; // Distancia mínima para la nota más grave (en cm)
+int maxDistanceSensor2 = 50; // Distancia máxima para la nota más aguda (en cm)
+
+// Pines del sensor 1 (para BPM)
+int trigPin1 = 8;
+int echoPin1 = 7;
+
+// Pines del sensor 2 (para notas)
+int trigPin2 = 13;
+int echoPin2 = 12;
+
+// Frecuencias para las notas
+int minNote = 261;   // Nota grave (C3) en Hz
+int maxNote = 1047;  // Nota aguda (C6) en Hz
+
+void setup() {
+  pinMode(speakerPin, OUTPUT);
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+  Serial.begin(9600); // Para depuración
+}
+
+void loop() {
+  int distance1 = getDistance(trigPin1, echoPin1);
+  int distance2 = getDistance(trigPin2, echoPin2);
+
+  Serial.print("Distancia 1: ");
+  Serial.print(distance1);
+  Serial.print(" cm, Distancia 2: ");
+  Serial.print(distance2);
+  Serial.println(" cm");
+
+  // Verifica si el primer sensor detecta una distancia válida
+  if (distance1 >= minDistanceSensor1 && distance1 <= maxDistanceSensor1) {
+    // Mapea la distancia del sensor 1 a BPM
+    int bpm = map(distance1, minDistanceSensor1, maxDistanceSensor1, maxBPM, minBPM);
+    bpm = constrain(bpm, minBPM, maxBPM); // Asegura que BPM esté dentro del rango permitido
+
+    // Verifica si el segundo sensor detecta una distancia válida
+    if (distance2 >= minDistanceSensor2 && distance2 <= maxDistanceSensor2) {
+      // Mapea la distancia del sensor 2 a frecuencia de la nota
+      int note = map(distance2, minDistanceSensor2, maxDistanceSensor2, maxNote, minNote);
+
+      int beatDuration = 60000 / bpm; // Duración de un beat en milisegundos
+      int noteDuration = beatDuration * 0.25; // Duración de la nota (25% del beat)
+
+      tone(speakerPin, note, noteDuration); // Tocar la nota
+      delay(beatDuration); // Esperar hasta el siguiente beat
+    } else {
+      tone(speakerPin, minNote, 500); // Reproducir una nota grave de 500 ms si el sensor 2 no detecta nada
+      delay(1000); // Esperar 1 segundo antes de volver a medir
+    }
+  } else {
+    // Si el sensor 1 no detecta nada, no reproducir nada
+    noTone(speakerPin); // Detener el tono si no hay BPM
+    delay(100); // Pausa breve antes de volver a medir
+  }
+}
+
+// Función para obtener la distancia medida por el sensor
+int getDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.034 / 2; // Convertir tiempo en distancia (cm)
+
+  return distance;
+}
